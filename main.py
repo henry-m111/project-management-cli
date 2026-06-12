@@ -99,8 +99,36 @@ def handle_update_task(args):
     error(f"Task '{args.title}' not found.")
 
 
+def handle_delete_user(args):
+    """Delete a user by name."""
+    user = User.find_by_name(args.name)
+    if not user:
+        error(f"User '{args.name}' not found.")
+        return
+    User._all.remove(user)
+    for project in user.projects:
+        for task in project.tasks:
+            Task._all.remove(task)
+        Project._all.remove(project)
+    save_data()
+    success(f"User '{user.name}' and all their projects/tasks deleted.")
+
+
+def handle_delete_project(args):
+    """Delete a project by title."""
+    project = Project.find_by_title(args.title)
+    if not project:
+        error(f"Project '{args.title}' not found.")
+        return
+    for task in project.tasks:
+        Task._all.remove(task)
+    project.owner.projects.remove(project)
+    Project._all.remove(project)
+    save_data()
+    success(f"Project '{project.title}' and all its tasks deleted.")
+
+
 def main():
-    # Load existing data on startup
     load_data()
 
     parser = argparse.ArgumentParser(
@@ -148,9 +176,16 @@ def main():
     p_update_task.add_argument("--title", required=True, help="Task title")
     p_update_task.add_argument("--status", required=True, help="New status (pending/in-progress/complete)")
 
+    # --- delete-user ---
+    p_delete_user = subparsers.add_parser("delete-user", help="Delete a user")
+    p_delete_user.add_argument("--name", required=True, help="User's name")
+
+    # --- delete-project ---
+    p_delete_project = subparsers.add_parser("delete-project", help="Delete a project")
+    p_delete_project.add_argument("--title", required=True, help="Project title")
+
     args = parser.parse_args()
 
-    # Route to correct handler
     commands = {
         "add-user": handle_add_user,
         "list-users": handle_list_users,
@@ -160,9 +195,10 @@ def main():
         "list-tasks": handle_list_tasks,
         "complete-task": handle_complete_task,
         "update-task": handle_update_task,
+        "delete-user": handle_delete_user,
+        "delete-project": handle_delete_project,
     }
 
-      # Handle no command given
     if args.command is None:
         parser.print_help()
         return
